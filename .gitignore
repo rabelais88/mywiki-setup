@@ -1,3 +1,4 @@
 LocalSettings.php
 acme.json
 letsencrypt/acme.json
+.DS_Store
