@@ -1,0 +1,73 @@
+# for extensions, read docker hub doc: https://hub.docker.com/_/mediawiki
+
+version: '3.7'
+services:
+  mywiki-app:
+    image: mediawiki:latest
+    # ports:
+    #   - 4000:80 # exposed:input
+    volumes:
+      - wiki-images:/var/www/html/images
+      - ./extensions:/var/www/html/extensions
+      # After initial setup, download LocalSettings.php to the same directory as
+      # this yaml and uncomment the following line and use compose to restart
+      # the mediawiki service
+      # - ./LocalSettings.php:/var/www/html/LocalSettings.php
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.services.mywiki-app-service.loadbalancer.server.port=80
+        - traefik.http.routers.mywiki-app-router-web.rule=Host(`127.0.0.1.xip.io`,`www.127.0.0.1.xip.io`, `localhost`)
+        # - traefik.http.routers.mywiki-app-router-web.middlewares=myredirect
+        - traefik.http.routers.mywiki-app-router-web.entrypoints=web
+        # - traefik.http.routers.mywiki-app-router-web-secure.rule=Host(`127.0.0.1.xip.io`,`www.127.0.0.1.xip.io`)
+        # - traefik.http.routers.mywiki-app-router-web-secure.entrypoints=web-secure
+        # - traefik.http.routers.mywiki-app-router-web-secure.tls.certresolver=wiki-cert
+        - traefik.docker.network=wiki-network
+    networks:
+      - wiki-network
+
+  mywiki-db:
+    image: mariadb:latest
+    environment:
+      - MYSQL_ROOT_PASSWORD=1234 # for root
+      - MYSQL_USER=admin
+      - MYSQL_PASSWORD=1234 # for admin
+      - MYSQL_DATABASE=wikidb
+    networks:
+      - wiki-network
+    volumes:
+      - wiki-db:/var/lib/mysql
+
+  mywiki-proxy:
+    image: traefik:latest
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/traefik.dev.yaml:/etc/traefik/traefik.yaml
+      - ./letsencrypt:/letsencrypt
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.mywiki-proxy.rule=Host(`traefik.127.0.0.1.xip.io`)
+        - traefik.http.services.mywiki-proxy-service.loadbalancer.server.port=8080
+        - traefik.docker.network=wiki-network
+        # - traefik.http.middlewares.myredirect.headers.sslredirect=true
+      placement:
+        constraints:
+          - node.role == manager
+        preferences:
+          - spread: node.id
+    networks:
+      - wiki-network
+
+volumes:
+  wiki-images:
+  wiki-db:
+networks:
+  wiki-network:
+    name: wiki-network # essential for 
+    driver: overlay

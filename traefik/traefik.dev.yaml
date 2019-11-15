@@ -1,0 +1,28 @@
+providers:
+  docker:
+    # docker swarm mode (1.12+)
+    # endpoint: "tcp://127.0.0.1:2375" # insecure
+    swarmMode: true
+    endpoint: "unix:///var/run/docker.sock"
+
+api:
+  dashboard: true # must access it via url:${HOSTNAME}/dashboard/
+  insecure: true # only for dev mode
+  debug: true
+log:
+  level: DEBUG
+
+entryPoints:
+  web:
+    address: ":80"
+  web-secure:
+    address: ":443"
+
+certificatesResolvers:
+  wiki-cert:
+    acme:
+      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+      email: sungryeolp@gmail.com
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
